@@ -88,6 +88,7 @@ function ProfileContent() {
           id,
           properties!inner (
             id,
+            slug,
             listing_title,
             city,
             state,
@@ -217,6 +218,7 @@ function ProfileContent() {
                             <StayCard 
                               key={prop.id}
                               id={prop.id}
+                              slug={prop.slug}
                               title={prop.listing_title}
                               location={`${prop.city || ""}${prop.state ? `, ${prop.state}` : ""}`}
                               category={prop.category || "Entire Home"}

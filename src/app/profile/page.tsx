@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import StayCard from "@/components/StayCard";
 import { User, LogOut, Settings, Heart, CalendarDays, Home, MapPin, Calendar, CheckCircle2, AlertCircle, Clock, Users, UserCheck, Lock } from "lucide-react";
 import { slugify } from "@/utils/seo";
-
+ 
 function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();

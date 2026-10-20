@@ -11,6 +11,7 @@ import { formatPropertyTitle } from "@/utils/formatPropertyTitle";
 
 interface Property {
   id: string;
+  slug?: string;
   listing_title: string;
   city: string;
   category: string;
@@ -79,6 +80,7 @@ const StayCarousel = ({ title, stays }: { title: string, stays: Property[] }) =>
           <div key={property.id} className="flex-shrink-0 w-[80vw] sm:w-[280px] lg:w-[calc((100%-96px)/5)] snap-center">
             <StayCard
               id={property.id}
+              slug={property.slug}
               title={formatPropertyTitle(property.listing_title, property.ls_id)}
               location={property.city}
               category={property.category}
@@ -475,6 +477,7 @@ export default function StaysSection({
               <StayCard
                 key={property.id}
                 id={property.id}
+                slug={property.slug}
                 title={formatPropertyTitle(property.listing_title, property.ls_id)}
                 location={property.city}
                 category={property.category}

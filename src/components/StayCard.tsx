@@ -90,7 +90,8 @@ export default function StayCard({
     }
   };
 
-  const stayUrl = `/stays/${slugify(title)}-${id}`;
+  // const stayUrl = `/stays/${slugify(title)}-${id}`;
+  const stayUrl = `/stays/${slug}`;
 
   return (
     <div className="w-full group cursor-pointer">

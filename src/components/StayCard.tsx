@@ -1,3 +1,4 @@
+ye kiya he mene update krke dekho code:
 "use client";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,6 +10,7 @@ import { slugify } from "@/utils/seo";
 
 interface StayCardProps {
   id: string;
+  slug?: string;
   title: string;
   location: string;
   category: string;
@@ -25,7 +27,8 @@ const generateRating = (id: string) => {
 };
 
 export default function StayCard({ 
-  id, 
+  id,
+  slug,
   title, 
   location, 
   category, 
@@ -90,7 +93,10 @@ export default function StayCard({
     }
   };
 
-const stayUrl = `/stays/${slugify(title)}-${id}`;
+// const stayUrl = `/stays/${slugify(title)}-${id}`;
+  const stayUrl = slug
+  ? `/stays/${slug}`
+  : `/stays/${slugify(title)}-${id}`;
   
   return (
     <div className="w-full group cursor-pointer">

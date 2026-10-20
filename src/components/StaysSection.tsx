@@ -20,7 +20,7 @@ interface Property {
   status: string;
   // Metadata for filtering
   amenities?: string[];
-  house_rules?: any;
+  house_rules?: any; 
   // Mocking rating for now as it's not in DB
   rating?: number;
   description?: string;

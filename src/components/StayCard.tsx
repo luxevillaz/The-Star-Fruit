@@ -101,13 +101,23 @@ export default function StayCard({
     <div className="w-full group cursor-pointer">
       <Link href={stayUrl}>
         <div className="relative aspect-[3/4] rounded-[24px] overflow-hidden mb-4 shadow-sm group-hover:shadow-xl transition-all duration-500">
-          <Image
+          {/* <Image
             src={image || "/images/stays/pool_villa.webp"}
             alt={title}
             fill
             className="object-cover group-hover:scale-110 transition-transform duration-1000"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 20vw"
-           unoptimized/>
+           unoptimized/> */}
+          
+<Image
+  src={image || "/images/stays/pool_villa.webp"}
+  alt={title}
+  fill
+  className="object-cover group-hover:scale-110 transition-transform duration-1000"
+  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 20vw"
+  quality={75}
+/>
+
           <button 
             onClick={handleToggleSave}
             className={`absolute top-4 right-4 p-2.5 backdrop-blur-xl rounded-full transition-all shadow-lg duration-300 ${

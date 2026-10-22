@@ -100,7 +100,8 @@ export default async function BlogDynamicPage({ params }: { params: Params }) {
 
 
           {/* Content */}
-          <div className="flex-1 max-w-prose w-full mx-auto">
+          {/* <div className="flex-1 max-w-prose w-full mx-auto"> */}
+          <div className="flex-1 w-full mx-auto">
             {/* Prose renders the HTML from our rich text editor */}
             <div
               className="prose prose-lg max-w-none prose-headings:font-serif prose-headings:font-bold prose-h1:text-4xl prose-h2:text-3xl prose-a:text-[#EC5B13] prose-img:rounded-2xl"

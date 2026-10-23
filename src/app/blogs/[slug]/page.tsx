@@ -111,7 +111,7 @@ export default async function BlogDynamicPage({ params }: { params: Params }) {
             {/* FAQs */}
             {blog.faqs && blog.faqs.length > 0 && (
               <div className="mt-16 border-t border-gray-100 pt-12">
-                <h2 className="text-3xl font-serif font-bold text-gray-900 mb-8">Frequently Asked Questions</h2>
+                <h3 className="text-3xl font-serif font-bold text-gray-900 mb-8">Frequently Asked Questions</h3>
                 <div className="space-y-6">
                   {blog.faqs.map((faq, index) => (
                     <div key={index} className="bg-gray-50 rounded-2xl p-6 border border-gray-100">

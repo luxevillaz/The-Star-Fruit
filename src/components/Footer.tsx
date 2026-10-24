@@ -86,7 +86,7 @@ export default function Footer() {
                     unoptimized />
                 </Link>
                 <p className="text-gray-400 text-sm leading-relaxed">
-                  Curating the finest staycations in Goa since 2022. Luxury, privacy, and local charm in every stay.
+                  Exceptional stays, thoughtfully curated since 2022. Luxury, privacy, and local charm in every destination.
                 </p>
               </div>
 
@@ -165,7 +165,7 @@ export default function Footer() {
                 </div>
 
                 <p className="text-gray-500 text-xs">
-                  © 2022 Luxevillaz
+                  © 2022 Luxevillaz Managed by Nosh N Shots
                 </p>
               </div>
 

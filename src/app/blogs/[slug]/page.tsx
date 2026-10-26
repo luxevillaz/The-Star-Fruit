@@ -104,7 +104,7 @@ export default async function BlogDynamicPage({ params }: { params: Params }) {
           <div className="flex-1 w-full mx-auto">
             {/* Prose renders the HTML from our rich text editor */}
             <div
-              className="prose prose-lg max-w-none prose-headings:font-serif prose-headings:font-bold prose-h1:text-4xl prose-h2:text-3xl prose-a:text-[#EC5B13] prose-img:rounded-2xl"
+               className="prose prose-base max-w-none prose-p:text-gray-700 prose-p:font-medium prose-p:leading-[1.6] prose-headings:font-serif prose-headings:font-bold prose-h1:text-4xl prose-h2:text-3xl prose-a:text-[#EC5B13] prose-img:rounded-2xl"
               dangerouslySetInnerHTML={{ __html: blog.content }}
             />
 

@@ -57,6 +57,14 @@
     to { transform: translateX(0); opacity: 1; }
   }
 
+  
+/* Match blog paragraphs with property descriptions */
+.blog-content p,
+.blog-content p span {
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+}
+
   .glass {
     @apply bg-white/80 backdrop-blur-md border border-white/20;
   }

@@ -58,14 +58,24 @@
   }
 
   
+
 /* Match blog paragraphs with property descriptions */
 .blog-content p,
 .blog-content p span {
   font-size: 16px !important;
   line-height: 1.6 !important;
 }
-    .glass {
-    @apply bg-white/80 backdrop-blur-md border border-white/20;
-  }
+
+/* Keep blog paragraph font family consistent */
+.blog-content p,
+.blog-content p span,
+.blog-content li {
+  font-family: var(--font-sans), sans-serif !important;
+}
+
+.glass {
+  @apply bg-white/80 backdrop-blur-md border border-white/20;
+}
+
 }
 

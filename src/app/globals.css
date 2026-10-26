@@ -64,7 +64,7 @@
   font-size: 16px !important;
   line-height: 1.6 !important;
 }
-
+}
   .glass {
     @apply bg-white/80 backdrop-blur-md border border-white/20;
   }

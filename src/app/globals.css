@@ -71,6 +71,7 @@
 .blog-content p span,
 .blog-content li {
   font-family: var(--font-sans), sans-serif !important;
+  color: #000;
 }
 
 .glass {

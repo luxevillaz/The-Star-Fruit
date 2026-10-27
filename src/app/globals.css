@@ -58,21 +58,25 @@
   }
 
   
-
-/* Match blog paragraphs with property descriptions */
+/* Consistent typography across all blog content */
 .blog-content p,
-.blog-content p span {
+.blog-content p *,
+.blog-content li,
+.blog-content li * {
+  font-family: var(--font-sans), sans-serif !important;
   font-size: 16px !important;
+  font-weight: 400 !important;
   line-height: 1.6 !important;
 }
 
-/* Keep blog paragraph font family consistent */
-.blog-content p,
-.blog-content p span,
-.blog-content li {
-  font-family: var(--font-sans), sans-serif !important;
-  color: #000;
+/* Consistent bold text */
+.blog-content p strong,
+.blog-content p b,
+.blog-content li strong,
+.blog-content li b {
+  font-weight: 700 !important;
 }
+
 
 .glass {
   @apply bg-white/80 backdrop-blur-md border border-white/20;

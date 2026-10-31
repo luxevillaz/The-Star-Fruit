@@ -380,9 +380,9 @@ export default function AdminPropertyEnquiries() {
 
       {/* Detail Modal */}
       {isModalOpen && selectedEnquiry && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[32px] w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto p-3 sm:p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[24px] sm:rounded-[32px] w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="shrink-0 p-5 sm:p-8 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center text-[#EC5B13] font-black text-2xl border border-gray-100">
                   {selectedEnquiry.full_name[0].toUpperCase()}
@@ -407,7 +407,7 @@ export default function AdminPropertyEnquiries() {
               </button>
             </div>
 
-            <div className="p-8 space-y-6">
+            <div className="min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-8 space-y-6">
               <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex items-center gap-3">
                 <Clock className="text-[#EC5B13]" size={20} />
                 <div>

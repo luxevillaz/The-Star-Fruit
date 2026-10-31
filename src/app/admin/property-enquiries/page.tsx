@@ -9,7 +9,7 @@ import PropertyDetailsModal from "@/components/admin/PropertyDetailsModal";
 
 interface PropertyEnquiry {
   id: string;
-  user_id: string;
+  user_id: string | null;
   property_id: string;
   full_name: string;
   email: string;
@@ -46,6 +46,21 @@ export default function AdminPropertyEnquiries() {
     try {
       if (!supabase) throw new Error("Supabase is not configured.");
 
+      // Confirm the signed-in user is an Admin before loading enquiry data.
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+
+      if (!session) {
+        router.replace('/admin/login');
+        return;
+      }
+
+      if (session.user.user_metadata?.role !== 'admin') {
+        router.replace('/');
+        return;
+      }
+
+      // Admin view: fetch enquiries across ALL properties, not only one host's listings.
       const { data, error: fetchError } = await supabase
         .from('property_enquiries')
         .select('*, properties(listing_title)')
@@ -62,7 +77,7 @@ export default function AdminPropertyEnquiries() {
 
   useEffect(() => {
     fetchEnquiries();
-  }, []);
+  }, [router]);
 
   const handleViewProperty = async (e: React.MouseEvent, propertyId: string) => {
     e.stopPropagation();
@@ -102,9 +117,12 @@ export default function AdminPropertyEnquiries() {
 
       if (updateError) throw updateError;
 
-      setEnquiries(enquiries.map(enq =>
+      setEnquiries(current => current.map(enq =>
         enq.id === enquiry.id ? { ...enq, is_paid: newPaidStatus } : enq
       ));
+      setSelectedEnquiry(current =>
+        current?.id === enquiry.id ? { ...current, is_paid: newPaidStatus } : current
+      );
 
       await logActivity("Toggled payment status for property enquiry", {
         enquiry_id: enquiry.id,
@@ -147,7 +165,7 @@ export default function AdminPropertyEnquiries() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-12">
         <div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tight">Property Enquiries</h2>
-          <p className="text-gray-500 font-medium mt-1">Manage bookings and track payments for property listings.</p>
+          <p className="text-gray-500 font-medium mt-1">View and manage enquiries across all property listings. Payment status changes here are manual admin updates.</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -265,9 +283,13 @@ export default function AdminPropertyEnquiries() {
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          router.push(`/admin/messages?userId=${enquiry.user_id}`);
+                          if (enquiry.user_id) {
+                            router.push(`/admin/messages?userId=${enquiry.user_id}`);
+                          } else {
+                            alert("This enquiry is not linked to a registered user account.");
+                          }
                         }}
-                        className="p-2 bg-gray-50 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all border border-gray-100"
+                        className={`p-2 bg-gray-50 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all border border-gray-100 ${!enquiry.user_id ? "opacity-50" : ""}`}
                         title="Chat with traveler"
                       >
                         <MessageSquare size={16} />

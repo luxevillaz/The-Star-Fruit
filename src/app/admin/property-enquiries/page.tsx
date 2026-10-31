@@ -7,6 +7,28 @@ import { Mail, Phone, Clock, Search, RefreshCcw, User, X, Calendar, Trash2, Home
 import { logActivity } from "@/lib/logger";
 import PropertyDetailsModal from "@/components/admin/PropertyDetailsModal";
 
+interface BookingPayment {
+  id: string;
+  enquiry_id: string;
+  total_booking_amount_paise: number | string;
+  amount_paise: number | string;
+  currency: string | null;
+  status: string;
+  razorpay_payment_link_id: string | null;
+  razorpay_payment_link_url: string | null;
+  razorpay_payment_id: string | null;
+  paid_at: string | null;
+  created_at: string;
+}
+
+interface PaymentSummary {
+  totalPaise: number;
+  receivedPaise: number;
+  pendingPaise: number;
+  status: "unpaid" | "partial" | "paid";
+  payments: BookingPayment[];
+}
+
 interface PropertyEnquiry {
   id: string;
   user_id: string | null;
@@ -34,6 +56,8 @@ export default function AdminPropertyEnquiries() {
   const [selectedEnquiry, setSelectedEnquiry] = useState<PropertyEnquiry | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [paymentSummaries, setPaymentSummaries] = useState<Record<string, PaymentSummary>>({});
+  const [paymentSummaryLoading, setPaymentSummaryLoading] = useState(false);
   
   // Property details modal state
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
@@ -63,7 +87,11 @@ export default function AdminPropertyEnquiries() {
         return;
       }
 
-      if (session.user.user_metadata?.role !== 'admin') {
+      const role =
+        session.user.app_metadata?.role ||
+        session.user.user_metadata?.role;
+
+      if (!["admin", "super_admin", "super-admin", "superadmin"].includes(String(role || "").toLowerCase())) {
         router.replace('/');
         return;
       }
@@ -75,7 +103,57 @@ export default function AdminPropertyEnquiries() {
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
-      setEnquiries(data || []);
+      const enquiryRows = (data || []) as PropertyEnquiry[];
+      setEnquiries(enquiryRows);
+
+      // Load Razorpay payment records for all enquiries in one query.
+      if (enquiryRows.length) {
+        setPaymentSummaryLoading(true);
+        const enquiryIds = enquiryRows.map((item) => item.id);
+        const { data: paymentRows, error: paymentError } = await supabase
+          .from("booking_payments")
+          .select("id, enquiry_id, total_booking_amount_paise, amount_paise, currency, status, razorpay_payment_link_id, razorpay_payment_link_url, razorpay_payment_id, paid_at, created_at")
+          .in("enquiry_id", enquiryIds)
+          .order("created_at", { ascending: false });
+
+        if (paymentError) {
+          console.error("Could not load booking payment summaries:", paymentError);
+          setPaymentSummaries({});
+        } else {
+          const grouped: Record<string, BookingPayment[]> = {};
+          (paymentRows || []).forEach((row: BookingPayment) => {
+            if (!grouped[row.enquiry_id]) grouped[row.enquiry_id] = [];
+            grouped[row.enquiry_id].push(row);
+          });
+
+          const summaries: Record<string, PaymentSummary> = {};
+          Object.entries(grouped).forEach(([enquiryId, payments]) => {
+            const totalPaise = payments.reduce(
+              (max, payment) => Math.max(max, Number(payment.total_booking_amount_paise || 0)),
+              0
+            );
+            const receivedPaise = payments
+              .filter((payment) => String(payment.status).toLowerCase() === "paid")
+              .reduce((sum, payment) => sum + Number(payment.amount_paise || 0), 0);
+            summaries[enquiryId] = {
+              totalPaise,
+              receivedPaise,
+              pendingPaise: Math.max(0, totalPaise - receivedPaise),
+              status: totalPaise > 0 && receivedPaise >= totalPaise
+                ? "paid"
+                : receivedPaise > 0
+                  ? "partial"
+                  : "unpaid",
+              payments,
+            };
+          });
+          setPaymentSummaries(summaries);
+        }
+        setPaymentSummaryLoading(false);
+      } else {
+        setPaymentSummaries({});
+        setPaymentSummaryLoading(false);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -109,36 +187,6 @@ export default function AdminPropertyEnquiries() {
       alert("Error fetching property details: " + err.message);
     } finally {
       setFetchingProperty(false);
-    }
-  };
-
-  const handleTogglePaid = async (e: React.MouseEvent, enquiry: PropertyEnquiry) => {
-    e.stopPropagation();
-    try {
-      if (!supabase) return;
-
-      const newPaidStatus = !enquiry.is_paid;
-      const { error: updateError } = await supabase
-        .from('property_enquiries')
-        .update({ is_paid: newPaidStatus })
-        .eq('id', enquiry.id);
-
-      if (updateError) throw updateError;
-
-      setEnquiries(current => current.map(enq =>
-        enq.id === enquiry.id ? { ...enq, is_paid: newPaidStatus } : enq
-      ));
-      setSelectedEnquiry(current =>
-        current?.id === enquiry.id ? { ...current, is_paid: newPaidStatus } : current
-      );
-
-      await logActivity("Toggled payment status for property enquiry", {
-        enquiry_id: enquiry.id,
-        new_status: newPaidStatus ? "PAID" : "UNPAID",
-        guest: enquiry.full_name
-      });
-    } catch (err: any) {
-      alert("Error updating payment status: " + err.message);
     }
   };
 
@@ -234,7 +282,7 @@ export default function AdminPropertyEnquiries() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-12">
         <div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tight">Property Enquiries</h2>
-          <p className="text-gray-500 font-medium mt-1">View and manage enquiries across all property listings. Payment status changes here are manual admin updates.</p>
+          <p className="text-gray-500 font-medium mt-1">View and manage enquiries across all property listings, including live Razorpay collections and pending balances.</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -333,19 +381,26 @@ export default function AdminPropertyEnquiries() {
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <button
-                      onClick={(e) => handleTogglePaid(e, enquiry)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${enquiry.is_paid
-                          ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                          : "bg-amber-50 text-amber-600 border border-amber-100 hover:bg-amber-100"
-                        }`}
-                    >
-                      {enquiry.is_paid ? (
-                        <><CheckCircle2 size={14} /> Payment Received</>
-                      ) : (
-                        <><AlertCircle size={14} /> Mark as Paid</>
-                      )}
-                    </button>
+                    {(() => {
+                      const summary = paymentSummaries[enquiry.id];
+                      const label = summary?.status === "paid"
+                        ? "Fully Paid"
+                        : summary?.status === "partial"
+                          ? "Partially Paid"
+                          : "Unpaid";
+                      return (
+                        <div className={`inline-flex flex-col gap-1 px-3 py-2 rounded-xl text-xs font-black ${
+                          summary?.status === "paid"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                            : summary?.status === "partial"
+                              ? "bg-blue-50 text-blue-700 border border-blue-100"
+                              : "bg-amber-50 text-amber-700 border border-amber-100"
+                        }`}>
+                          <span>{label}</span>
+                          {summary && <span className="font-semibold">₹{(summary.receivedPaise / 100).toLocaleString("en-IN")} received</span>}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-2">
@@ -450,28 +505,73 @@ export default function AdminPropertyEnquiries() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 rounded-2xl bg-[#FFF0E8]/30 border border-[#EC5B13]/10">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedEnquiry.is_paid ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                    {selectedEnquiry.is_paid ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+              {(() => {
+                const summary = paymentSummaries[selectedEnquiry.id];
+                const total = summary?.totalPaise || 0;
+                const received = summary?.receivedPaise || 0;
+                const pending = summary?.pendingPaise || 0;
+                const paymentLabel = summary?.status === "paid"
+                  ? "Fully Paid"
+                  : summary?.status === "partial"
+                    ? "Partially Paid"
+                    : "Awaiting Payment";
+                return (
+                  <div className="rounded-2xl border border-gray-200 p-5 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <CreditCard size={18} className="text-[#EC5B13]" />
+                        <h4 className="font-black text-gray-900">Payment Summary</h4>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${
+                        summary?.status === "paid"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : summary?.status === "partial"
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-amber-50 text-amber-700"
+                      }`}>{paymentSummaryLoading ? "Updating..." : paymentLabel}</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="rounded-xl bg-gray-50 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Booking</p>
+                        <p className="mt-1 text-lg font-black text-gray-900">{total ? `₹${(total / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "Not set"}</p>
+                      </div>
+                      <div className="rounded-xl bg-emerald-50 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Amount Received</p>
+                        <p className="mt-1 text-lg font-black text-emerald-700">₹{(received / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                      </div>
+                      <div className="rounded-xl bg-amber-50 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-amber-600">Amount Pending</p>
+                        <p className="mt-1 text-lg font-black text-amber-700">{total ? `₹${(pending / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "—"}</p>
+                      </div>
+                    </div>
+                    {!summary && (
+                      <p className="text-xs text-gray-500">No Razorpay payment link has been generated for this enquiry yet.</p>
+                    )}
+                    {summary?.payments?.length ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-black uppercase tracking-wider text-gray-500">Payment History</p>
+                        {summary.payments.map((payment) => (
+                          <div key={payment.id} className="rounded-xl border border-gray-100 p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-bold text-gray-900">
+                                ₹{(Number(payment.amount_paise || 0) / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                                <span className={`ml-2 text-[10px] uppercase ${String(payment.status).toLowerCase() === "paid" ? "text-emerald-600" : "text-amber-600"}`}>{payment.status}</span>
+                              </p>
+                              <p className="text-[11px] text-gray-500 mt-1">
+                                {payment.paid_at ? `Paid: ${new Date(payment.paid_at).toLocaleString("en-IN")}` : `Created: ${new Date(payment.created_at).toLocaleString("en-IN")}`}
+                              </p>
+                              {payment.razorpay_payment_id && <p className="text-[10px] text-gray-400 mt-1">Payment ID: {payment.razorpay_payment_id}</p>}
+                            </div>
+                            {payment.razorpay_payment_link_url && (
+                              <a href={payment.razorpay_payment_link_url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-[#EC5B13] hover:underline">Open payment link</a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                  <div>
-                    <p className="text-xs font-black text-gray-900">Payment Status</p>
-                    <p className={`text-xs font-bold ${selectedEnquiry.is_paid ? 'text-emerald-600' : 'text-amber-600'}`}>
-                      {selectedEnquiry.is_paid ? 'Money Received - Host Unlocked' : 'Awaiting Payment - Host Locked'}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => handleTogglePaid(e, selectedEnquiry)}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${selectedEnquiry.is_paid
-                      ? "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                      : "bg-[#EC5B13] text-white hover:bg-[#d44f0f] shadow-lg shadow-[#EC5B13]/20"
-                    }`}
-                >
-                  {selectedEnquiry.is_paid ? "Mark Unpaid" : "Verify Payment"}
-                </button>
-              </div>
+                );
+              })()}
 
               {/* Razorpay Payment Link Generator */}
               <div className="rounded-2xl border border-gray-200 p-5 space-y-4">

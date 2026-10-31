@@ -357,7 +357,7 @@ export default function PropertyDetailsClient({ initialProperty }: { initialProp
     try {
       const { error } = await supabase.from('property_enquiries').insert([
         {
-          property_id: id,
+          property_id: property.id,
           user_id: session?.user?.id || null,
           full_name: enquiryData.fullName,
           email: enquiryData.email,
@@ -448,7 +448,7 @@ export default function PropertyDetailsClient({ initialProperty }: { initialProp
       const { data, error } = await supabase
         .from('reviews')
         .select('*')
-        .eq('property_id', id)
+        .eq('property_id', property?.id || initialProperty.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -474,7 +474,7 @@ export default function PropertyDetailsClient({ initialProperty }: { initialProp
             .from('saved_properties')
             .select('id')
             .eq('user_id', curSession.user.id)
-            .eq('property_id', id)
+            .eq('property_id', initialProperty.id)
             .maybeSingle();
 
           if (savedData) setIsSaved(true);
@@ -534,7 +534,7 @@ export default function PropertyDetailsClient({ initialProperty }: { initialProp
   }, [property?.images, showAllPhotos]);
 
   const handleToggleSave = async () => {
-    if (!supabase) return;
+    if (!supabase || !property) return;
     if (!session) {
       router.push("/login?redirect=/stays/" + id);
       return;
@@ -550,11 +550,11 @@ export default function PropertyDetailsClient({ initialProperty }: { initialProp
           .from('saved_properties')
           .delete()
           .eq('user_id', session.user.id)
-          .eq('property_id', id);
+          .eq('property_id', property.id);
       } else {
         await supabase
           .from('saved_properties')
-          .insert({ user_id: session.user.id, property_id: id });
+          .insert({ user_id: session.user.id, property_id: property.id });
       }
     } catch (err) {
       console.error("Error toggling save:", err);

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Mail, Phone, Clock, Search, RefreshCcw, User, X, Calendar, Trash2, Home, CheckCircle2, AlertCircle, MessageSquare } from "lucide-react";
+import { Mail, Phone, Clock, Search, RefreshCcw, User, X, Calendar, Trash2, Home, CheckCircle2, AlertCircle, MessageSquare, CreditCard, Copy, ExternalLink } from "lucide-react";
 import { logActivity } from "@/lib/logger";
 import PropertyDetailsModal from "@/components/admin/PropertyDetailsModal";
 
@@ -39,6 +39,14 @@ export default function AdminPropertyEnquiries() {
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
   const [isPropModalOpen, setIsPropModalOpen] = useState(false);
   const [fetchingProperty, setFetchingProperty] = useState(false);
+
+  // Razorpay payment-link form state
+  const [bookingAmount, setBookingAmount] = useState("");
+  const [paymentType, setPaymentType] = useState<"advance_20" | "advance_30" | "full" | "custom">("advance_20");
+  const [customAmount, setCustomAmount] = useState("");
+  const [creatingPaymentLink, setCreatingPaymentLink] = useState(false);
+  const [generatedPaymentLink, setGeneratedPaymentLink] = useState<string | null>(null);
+  const [generatedPaymentAmount, setGeneratedPaymentAmount] = useState<number | null>(null);
 
   const fetchEnquiries = async () => {
     setLoading(true);
@@ -134,6 +142,67 @@ export default function AdminPropertyEnquiries() {
     }
   };
 
+  const handleCreatePaymentLink = async () => {
+    if (!supabase || !selectedEnquiry) return;
+
+    const total = Number(bookingAmount);
+    const custom = Number(customAmount);
+
+    if (!Number.isFinite(total) || total <= 0) {
+      alert("Please enter a valid total booking amount.");
+      return;
+    }
+
+    if (paymentType === "custom" && (!Number.isFinite(custom) || custom <= 0 || custom > total)) {
+      alert("Please enter a valid custom amount that does not exceed the total booking amount.");
+      return;
+    }
+
+    setCreatingPaymentLink(true);
+    setGeneratedPaymentLink(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("create-razorpay-order", {
+        body: {
+          enquiry_id: selectedEnquiry.id,
+          total_booking_amount: total,
+          payment_type: paymentType,
+          custom_amount: paymentType === "custom" ? custom : undefined,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.success || !data?.payment_link) {
+        throw new Error(data?.error || "Unable to create payment link.");
+      }
+
+      const paidAmount = Number(data.amount_paise) / 100;
+      setGeneratedPaymentLink(data.payment_link);
+      setGeneratedPaymentAmount(paidAmount);
+      await logActivity("Created Razorpay payment link for property enquiry", {
+        enquiry_id: selectedEnquiry.id,
+        payment_link_id: data.payment_link_id,
+        amount_paise: data.amount_paise,
+        guest: selectedEnquiry.full_name,
+      });
+    } catch (err: any) {
+      console.error("Payment link generation failed:", err);
+      alert(err?.message || "Unable to create payment link. Please try again.");
+    } finally {
+      setCreatingPaymentLink(false);
+    }
+  };
+
+  const handleCopyPaymentLink = async () => {
+    if (!generatedPaymentLink) return;
+    try {
+      await navigator.clipboard.writeText(generatedPaymentLink);
+      alert("Payment link copied.");
+    } catch {
+      alert("Could not copy automatically. Please copy the link manually.");
+    }
+  };
+
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (!confirm("Are you sure you want to delete this enquiry?")) return;
@@ -221,7 +290,7 @@ export default function AdminPropertyEnquiries() {
                 <tr
                   key={enquiry.id}
                   className="hover:bg-gray-50/50 transition-all group cursor-pointer"
-                  onClick={() => { setSelectedEnquiry(enquiry); setIsModalOpen(true); }}
+                  onClick={() => { setSelectedEnquiry(enquiry); setIsModalOpen(true); setGeneratedPaymentLink(null); setGeneratedPaymentAmount(null); setBookingAmount(""); setCustomAmount(""); setPaymentType("advance_20"); }}
                 >
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-4">
@@ -402,6 +471,97 @@ export default function AdminPropertyEnquiries() {
                 >
                   {selectedEnquiry.is_paid ? "Mark Unpaid" : "Verify Payment"}
                 </button>
+              </div>
+
+              {/* Razorpay Payment Link Generator */}
+              <div className="rounded-2xl border border-gray-200 p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <CreditCard size={18} className="text-[#EC5B13]" />
+                  <h4 className="font-black text-gray-900">Generate Razorpay Payment Link</h4>
+                </div>
+                <p className="text-xs text-gray-500">Enter the agreed total booking amount. The payment link will be created in the currently configured Razorpay mode.</p>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-2">Total Booking Amount (INR)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={bookingAmount}
+                    onChange={(e) => { setBookingAmount(e.target.value); setGeneratedPaymentLink(null); }}
+                    placeholder="e.g. 50000"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#EC5B13] focus:ring-2 focus:ring-[#EC5B13]/10"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-2">Payment Type</label>
+                  <select
+                    value={paymentType}
+                    onChange={(e) => { setPaymentType(e.target.value as "advance_20" | "advance_30" | "full" | "custom"); setGeneratedPaymentLink(null); }}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-[#EC5B13]"
+                  >
+                    <option value="advance_20">20% Advance</option>
+                    <option value="advance_30">30% Advance</option>
+                    <option value="full">Full Payment</option>
+                    <option value="custom">Custom Amount</option>
+                  </select>
+                </div>
+
+                {paymentType === "custom" && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-2">Custom Payment Amount (INR)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      value={customAmount}
+                      onChange={(e) => { setCustomAmount(e.target.value); setGeneratedPaymentLink(null); }}
+                      placeholder="Enter custom amount"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#EC5B13] focus:ring-2 focus:ring-[#EC5B13]/10"
+                    />
+                  </div>
+                )}
+
+                {bookingAmount && Number(bookingAmount) > 0 && (
+                  <div className="rounded-xl bg-gray-50 p-3 text-sm flex items-center justify-between">
+                    <span className="text-gray-500">Payment amount</span>
+                    <strong className="text-gray-900">
+                      ₹{(paymentType === "advance_20" ? Number(bookingAmount) * 0.2 : paymentType === "advance_30" ? Number(bookingAmount) * 0.3 : paymentType === "full" ? Number(bookingAmount) : Number(customAmount || 0)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                    </strong>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleCreatePaymentLink}
+                  disabled={creatingPaymentLink || !bookingAmount || Number(bookingAmount) <= 0}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#EC5B13] px-4 py-3 text-sm font-black text-white transition-colors hover:bg-[#d44f0f] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <CreditCard size={16} />
+                  {creatingPaymentLink ? "Creating Payment Link..." : "Generate Payment Link"}
+                </button>
+
+                {generatedPaymentLink && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black text-emerald-800">Payment link created</p>
+                        <p className="text-xs text-emerald-700">Amount: ₹{(generatedPaymentAmount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                      </div>
+                      <CheckCircle2 size={20} className="text-emerald-600" />
+                    </div>
+                    <input readOnly value={generatedPaymentLink} className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-gray-700" />
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={handleCopyPaymentLink} className="inline-flex items-center gap-2 rounded-lg bg-white border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100">
+                        <Copy size={14} /> Copy Link
+                      </button>
+                      <a href={generatedPaymentLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-white border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100">
+                        <ExternalLink size={14} /> Open Link
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
